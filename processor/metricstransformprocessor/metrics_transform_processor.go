@@ -244,6 +244,12 @@ func (mtp *metricsTransformProcessor) processMetrics(_ context.Context, md pmetr
 				matchedMetrics = []*match{{metric: combined}}
 			}
 
+			// TODO: process UpdateResource action
+			// Invert loops: loop over transforms, then rms
+			// Each transform updates rms in-place within the function so
+			// the next transform uses up-to-date values
+			// Keep semantics of current group action: keep same strategy of saving group results to groupedMDs, apply at very end
+
 			for _, match := range matchedMetrics {
 				metricName := match.metric.MetricDescriptor.Name
 
