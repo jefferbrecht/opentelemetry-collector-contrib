@@ -6,14 +6,15 @@ package clientauth // import "github.com/open-telemetry/opentelemetry-collector-
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"google.golang.org/grpc/credentials"
 )
 
-// perRPCCredentials returns gRPC credentials using the OAuth TokenSource, and adds
+// perRPCCredentials returns gRPC credentials using the auth.Credentials, and adds
 // google metadata.
 func (ca clientAuthenticator) PerRPCCredentials() (credentials.PerRPCCredentials, error) {
-	if ca.TokenSource == nil {
+	if ca.Credentials == nil {
 		return nil, errors.New("not started")
 	}
 	return ca, nil
@@ -22,14 +23,27 @@ func (ca clientAuthenticator) PerRPCCredentials() (credentials.PerRPCCredentials
 // GetRequestMetadata gets the request metadata as a map from a clientAuthenticator.
 // Based on metadata added by the google go client:
 // https://github.com/googleapis/google-api-go-client/blob/113082d14d54f188d1b6c34c652e416592fc51b5/transport/grpc/dial.go#L224
-func (ca clientAuthenticator) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	if ca.TokenSource == nil {
+func (ca clientAuthenticator) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) {
+	if ca.Credentials == nil {
 		return nil, errors.New("not started")
 	}
 
-	metadata, err := ca.TokenSource.GetRequestMetadata(ctx, uri...)
+	ri, _ := credentials.RequestInfoFromContext(ctx)
+	if err := credentials.CheckSecurityLevel(ri.AuthInfo, credentials.PrivacyAndIntegrity); err != nil {
+		return nil, fmt.Errorf("unable to transfer credentials PerRPCCredentials: %w", err)
+	}
+
+	token, err := ca.Token(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	tokenType := token.Type
+	if tokenType == "" {
+		tokenType = "Bearer"
+	}
+	metadata := map[string]string{
+		"authorization": fmt.Sprintf("%s %s", tokenType, token.Value),
 	}
 
 	// Attach system parameters
@@ -40,4 +54,8 @@ func (ca clientAuthenticator) GetRequestMetadata(ctx context.Context, uri ...str
 		metadata["X-goog-project-id"] = ca.config.Project
 	}
 	return metadata, nil
+}
+
+func (clientAuthenticator) RequireTransportSecurity() bool {
+	return true
 }

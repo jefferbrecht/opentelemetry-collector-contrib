@@ -9,13 +9,14 @@ import (
 	"maps"
 	"net/http"
 
-	"golang.org/x/oauth2"
+	"cloud.google.com/go/auth"
+	"cloud.google.com/go/auth/httptransport"
 )
 
 // roundTripper provides an HTTP RoundTripper which adds gcp credentials and
 // headers.
 func (ca *clientAuthenticator) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
-	if ca.TokenSource == nil {
+	if ca.Credentials == nil {
 		return nil, errors.New("not started")
 	}
 	paramBase := &parameterTransport{
@@ -28,10 +29,11 @@ func (ca *clientAuthenticator) RoundTripper(base http.RoundTripper) (http.RoundT
 			base:   paramBase,
 		}, nil
 	}
-	return &oauth2.Transport{
-		Source: ca,
-		Base:   paramBase,
-	}, nil
+	client := &http.Client{Transport: paramBase}
+	if err := httptransport.AddAuthorizationMiddleware(client, ca.Credentials); err != nil {
+		return nil, err
+	}
+	return client.Transport, nil
 }
 
 type parameterTransport struct {
@@ -65,7 +67,7 @@ func (t *parameterTransport) RoundTrip(req *http.Request) (*http.Response, error
 // instead of the Authorization header. This is useful for IAP-protected
 // endpoints where the Authorization header is used by the backend service.
 type proxyAuthTransport struct {
-	source oauth2.TokenSource
+	source auth.TokenProvider
 	base   http.RoundTripper
 }
 
@@ -73,13 +75,17 @@ func (t *proxyAuthTransport) RoundTrip(req *http.Request) (*http.Response, error
 	if t.base == nil {
 		return nil, errors.New("transport: no Transport specified")
 	}
-	token, err := t.source.Token()
+	token, err := t.source.Token(req.Context())
 	if err != nil {
 		return nil, err
+	}
+	tokenType := token.Type
+	if tokenType == "" {
+		tokenType = "Bearer"
 	}
 	newReq := *req
 	newReq.Header = make(http.Header)
 	maps.Copy(newReq.Header, req.Header)
-	newReq.Header.Set("Proxy-Authorization", fmt.Sprintf("%s %s", token.Type(), token.AccessToken))
+	newReq.Header.Set("Proxy-Authorization", fmt.Sprintf("%s %s", tokenType, token.Value))
 	return t.base.RoundTrip(&newReq)
 }

@@ -5,6 +5,7 @@ go 1.26.0
 exclude github.com/knadh/koanf v1.5.0
 
 require (
+	cloud.google.com/go/auth v0.23.3
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/collector/component v1.68.1-0.20260930032829-78b98e74fdfd
 	go.opentelemetry.io/collector/component/componenttest v0.162.1-0.20260930032829-78b98e74fdfd
@@ -12,14 +13,10 @@ require (
 	go.opentelemetry.io/collector/extension v1.68.1-0.20260930032829-78b98e74fdfd
 	go.opentelemetry.io/collector/extension/extensiontest v0.162.1-0.20260930032829-78b98e74fdfd
 	go.uber.org/goleak v1.3.0
-	golang.org/x/oauth2 v0.37.0
-	google.golang.org/api v0.299.0
 	google.golang.org/grpc v1.84.0
 )
 
 require (
-	cloud.google.com/go/auth v0.23.3 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -57,6 +54,7 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
+	google.golang.org/api v0.299.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )

@@ -4,7 +4,6 @@
 package clientauth // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/googleclientauthextension/internal/clientauth"
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,9 +11,9 @@ import (
 	"os"
 	"testing"
 
+	"cloud.google.com/go/auth"
+	"cloud.google.com/go/auth/credentials/idtoken"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/oauth2"
-	"google.golang.org/api/idtoken"
 )
 
 func init() {
@@ -68,7 +67,7 @@ func TestRoundTripper(t *testing.T) {
 		assert.Equal(t, "bar", r.Header.Get("foo"))
 		if r.Header.Get("Authorization") != "tokenType accessToken" {
 			// Don't print this out in-case it is a real access token.
-			t.Error("Authorization header was incorrect. FindDefaultCredentials may have found real credentials.")
+			t.Error("Authorization header was incorrect. DetectDefault may have found real credentials.")
 		}
 		return &http.Response{}, nil
 	}))
@@ -90,8 +89,10 @@ func TestRoundTripperWithIDToken(t *testing.T) {
 			Audience:     "http://example.com",
 			TokenHeader:  authorizationHeader,
 		},
-		newIDTokenSource: func(_ context.Context, _ string, _ ...idtoken.ClientOption) (oauth2.TokenSource, error) {
-			return &mockIDTokenSource{token: "dummy token"}, nil
+		newIDTokenCredentials: func(_ *idtoken.Options) (*auth.Credentials, error) {
+			return auth.NewCredentials(&auth.CredentialsOptions{
+				TokenProvider: &mockIDTokenSource{token: "dummy token"},
+			}), nil
 		},
 	}
 	err := ca.Start(t.Context(), nil)
@@ -220,12 +221,8 @@ func TestRoundTripperWithProxyAuth(t *testing.T) {
 }
 
 func TestProxyAuthTransportRoundTrip(t *testing.T) {
-	token := &oauth2.Token{
-		AccessToken: "test-token",
-		TokenType:   "Bearer",
-	}
 	tr := &proxyAuthTransport{
-		source: oauth2.StaticTokenSource(token),
+		source: &mockIDTokenSource{token: "test-token"},
 		base: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			assert.Equal(t, "Bearer test-token", r.Header.Get("Proxy-Authorization"))
 			assert.Empty(t, r.Header.Get("Authorization"))
